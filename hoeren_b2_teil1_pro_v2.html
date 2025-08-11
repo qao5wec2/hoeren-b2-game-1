@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Hören B2 Teil 1 – Interaktive Übung (Pro v2)</title>
+  <style>
+    :root{
+      --bg:#0b0f19;--edge:#1f2b4a;--txt:#e7ecf7;--muted:#b7c2d6;--acc:#7aa2ff;--good:#39d98a;--bad:#ff6b6b;
+    }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0; font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,"Helvetica Neue",Arial,sans-serif; color:var(--txt);
+      background: radial-gradient(1000px 700px at 10% -10%, #16213e 0%, rgba(11,15,25,0) 50%),
+                  radial-gradient(800px 800px at 110% 10%, #2b3467 0%, rgba(11,15,25,0) 50%),
+                  linear-gradient(180deg, #0b0f19, #0b0f19);
+    }
+    header{
+      position:sticky; top:0; z-index:10; backdrop-filter: blur(12px);
+      background: #0b0f19aa; border-bottom:1px solid #1a223b; padding:16px 20px; display:flex; gap:16px; align-items:center; flex-wrap:wrap;
+    }
+    h1{font-size:clamp(18px,2.5vw,24px); margin:0; letter-spacing:.3px}
+    .badge{font-size:12px; padding:4px 8px; border:1px solid var(--edge); border-radius:999px; color:var(--muted)}
+    .wrap{max-width:1100px; margin:24px auto; padding:0 16px 60px}
+    .controls{display:flex; gap:10px; flex-wrap:wrap; align-items:center}
+    .btn{border:none; background:linear-gradient(180deg,#253152,#1a2342); color:#e7ecf7; padding:10px 14px; border-radius:12px; cursor:pointer;
+         border:1px solid #243157; box-shadow:0 6px 20px #00000044 inset, 0 2px 10px #0b1028; transition:transform .08s ease, box-shadow .2s}
+    .btn:hover{transform:translateY(-1px)}
+    .btn:active{transform:translateY(0)}
+    .btn.ghost{background:transparent}
+    .btn.small{padding:8px 12px; font-size:13px}
+    .grid{display:grid; grid-template-columns:repeat(auto-fill,minmax(340px,1fr)); gap:16px; margin-top:16px}
+    .card{
+      background:linear-gradient(180deg, rgba(21,28,52,.7), rgba(12,18,36,.7)); border:1px solid var(--edge);
+      border-radius:18px; box-shadow:0 12px 40px rgba(0,0,0,.35), inset 0 0 0 1px rgba(255,255,255,.03);
+      padding:16px; position:relative; overflow:hidden; transition: box-shadow .25s ease, transform .08s ease;
+    }
+    .card::after{
+      content:""; position:absolute; inset:-1px; pointer-events:none; border-radius:18px;
+      background: radial-gradient(600px 120px at -10% -10%, rgba(255,255,255,.08), transparent 60%),
+                  radial-gradient(400px 120px at 110% -10%, rgba(122,162,255,.10), transparent 60%);
+    }
+    .card.ok{ box-shadow:0 0 0 1px rgba(57,217,138,.45), 0 0 24px rgba(57,217,138,.25), inset 0 0 0 1px rgba(255,255,255,.03); }
+    .topic{font-weight:600; color:var(--txt); margin:2px 0 8px; font-size:16px}
+    .row{display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin:8px 0}
+    .rf{display:flex; gap:14px; align-items:center}
+    label{font-size:14px; color:var(--muted)}
+    .opts{display:grid; gap:6px; margin-top:6px}
+    .opt{display:flex; align-items:center; gap:8px; padding:10px 12px; border:1px dashed #2a375d; border-radius:10px}
+    input[type="radio"], input[type="checkbox"]{accent-color:#7aa2ff}
+    .meta{font-size:12px; color:var(--muted)}
+    .footer{margin-top:16px; display:flex; gap:8px; flex-wrap:wrap; align-items:center}
+    .pill{font-size:12px; padding:4px 8px; border:1px solid #2a375d; border-radius:999px; color:var(--muted); display:none}
+    .pill.show{display:inline-flex}
+    .score{margin-left:auto; font-weight:600}
+    .progress{height:8px; background:#121a30; border:1px solid #223058; border-radius:999px; overflow:hidden; width:260px}
+    .bar{height:100%; width:0%; background: linear-gradient(90deg,#6ea8fe, #3e7bfa); transition:width .25s ease}
+    .hint{font-size:12px; color:var(--muted); margin-top:4px; display:none}
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Hören B2 Teil 1 – Interaktive Übung</h1>
+    <span class="badge">Richtig/Falsch + Multiple Choice</span>
+    <div class="controls">
+      <button class="btn small" id="shuffle">Shuffle</button>
+      <button class="btn small" id="checkAll">Alle prüfen</button>
+      <button class="btn small ghost" id="revealAll">Alle Lösungen zeigen</button>
+      <button class="btn small ghost" id="resetAll">Zurücksetzen</button>
+    </div>
+    <div class="score" id="score">Punkte: 0 / 76</div>
+    <div class="progress" aria-label="Fortschritt"><div class="bar" id="bar"></div></div>
+  </header>
+
+  <div class="wrap">
+    <div class="meta">Shuffle يبدّل <strong>ترتيب الكروت والاختيارات</strong>. الحلول مخفية وتظهر فقط بعد <em>Prüfen</em> أو <em>Lösung zeigen</em>. عند الإجابة الكاملة الصحيحة، الكارت يلمع <strong>أخضر</strong> ✨</div>
+    <div class="grid" id="grid"></div>
+  </div>
+
+<script>
+// Source data
+const source = [
+  ["Hörbuch","R","Entspannen"],
+  ["Essverhalten / Essgewohnheiten","R","kochen zusammen"],
+  ["Wochenende Zeitung","R","Andere medien ergänzt"],
+  ["Handy in der Freizeit","R","Immer mit dem Handy beschäftigen"],
+  ["Rauchen / Zigaretten","R","Reaktion / sinken"],
+  ["Wichtig im Leben","R","Horizont"],
+  ["Motivation in Arbeit","R","Konferenz"],
+  ["Verein (keine Zeit für Sport)","R","Die Tochter hat Hausaufgaben"],
+  ["Arbeitzeit","R","Kreativ"],
+  ["Freundlichkeit im Arbeitsplatz","R","Beruf"],
+  ["Fantasie im Arbeit","R","Aufgabe lösen"],
+  ["Verkaufsstrategie","R","erleichterte Verhandlung"],
+  ["Reden über Ausflug","R","Das Zelt hat gute Qualität"],
+  ["Art des Essens ändern","R","nimmt kochkurse teil"],
+  ["Reiseblog","R","über ihre Tiere"],
+  ["Spielwarenhandlung","R","geschlossen"],
+  ["Lottospiel spielt eine Rolle","R","süchtig steigert"],
+  ["Unterschied zwischen Stadt und Dorf","R","Sozialleben"],
+  ["verschiedene nutzen","R","★"],
+  ["Familie Zusammen","R","★"],
+  ["Zucker Konsum ,WHO","F","Essgewohnheiten verändern"],
+  ["Wohltätigkeitsorganisation","F","Mobiles Krankenhaus"],
+  ["2 Frauen kennen sich seit dem Studium","F","wollte Zeit für reden"],
+  ["Stricken mit Händen","F","Entspannen während der Arbeit"],
+  ["Meerfahrt / Seereise","F","In Ruhe den See betrachten"],
+  ["Verhältnis alte Menschen","F","angenehme Person"],
+  ["Behandlung","F","Das Verhalten ist richtig"],
+  ["Regel in der Gesellschaft","F","Konkurrenz zu groß"],
+  ["Deutsche Sprache verändern","F","Lange Zeitraum ändern"],
+  ["Erfahrung der ersten Arbeitstag","F","Erfolgriech"],
+  ["Praktikum Erfahrung","F","Selbst etwas zu schreiben"],
+  ["Kindergeburtstag Party kosten","F","allein organisieren"],
+  ["Glücksspiel","F","süchtig steigert"],
+  ["Prinzip der Natur","F","Gesellschaft Gleichheit"],
+  ["Über die französiche Sprache","F","Aufenthalt ins Ausland"],
+  ["Lebenshaltung und Mietkonsum in Stadt","F","bieten Wohnraum zu angemessenen Preisen"],
+  ["Alle Menschen kaufen nicht","F","★"],
+  ["Elterae Familie","F","★"],
+];
+
+const POINTS_PER_CARD = 2;
+let data = []; // working copy (shuffled)
+const grid = document.getElementById('grid');
+const bar = document.getElementById('bar');
+let totalPoints = 0;
+let answeredCards = 0;
+
+function updateProgress(){
+  document.getElementById('score').textContent = `Punkte: ${totalPoints} / ${data.length * POINTS_PER_CARD}`;
+  const pct = Math.min(100, Math.round((answeredCards / data.length) * 100));
+  bar.style.width = pct + '%';
+}
+
+// Fisher–Yates shuffle
+function shuffleArray(arr){
+  const a = arr.slice();
+  for(let i=a.length-1;i>0;i--){
+    const j = Math.floor(Math.random()*(i+1));
+    [a[i],a[j]] = [a[j],a[i]];
+  }
+  return a;
+}
+
+// Better distractors (generic, non-repeating)
+function distractors(answer){
+  const bank = [
+    "zum Lernen", "zum Einschlafen", "organisieren", "Zeit sparen", "Routine",
+    "Termin absagen", "Diskussion führen", "Statistik", "Qualität prüfen",
+    "im Team arbeiten", "später entscheiden", "neue Ideen sammeln",
+    "Kulturveranstaltung", "Familienzeit", "Gesundheit verbessern",
+    "Freunde treffen", "Umwelt schützen", "Sprachkurs besuchen",
+    "Reise planen", "Kosten reduzieren"
+  ];
+  let pool = bank.slice();
+  // remove exact match if exists
+  pool = pool.filter(x => x.toLowerCase() !== String(answer).toLowerCase());
+  const pick = () => { const i = Math.floor(Math.random()*pool.length); return pool.splice(i,1)[0]; }
+  return [pick(), pick()];
+}
+
+function makeCard(item, index){
+  const [topic, rf, ans] = item;
+  const id = `q${index+1}`;
+  const [d1,d2] = distractors(ans);
+  // Build and shuffle options (keep track of correct index)
+  let opts = [
+    {k:'a', text:d1, correct:false},
+    {k:'b', text:d2, correct:false},
+    {k:'c', text:ans, correct:true},
+  ];
+  opts = shuffleArray(opts).map((o, idx)=> ({...o, k:['a','b','c'][idx]})); // relabel a/b/c post-shuffle
+  const correctKey = opts.find(o=>o.correct).k;
+
+  const card = document.createElement('div');
+  card.className = 'card';
+  card.innerHTML = `
+    <div class="meta">Nr. ${index+1}</div>
+    <div class="topic">${topic}</div>
+
+    <div class="row rf" role="radiogroup" aria-label="Richtig oder Falsch">
+      <label><input type="radio" name="${id}-rf" value="R"> Richtig</label>
+      <label><input type="radio" name="${id}-rf" value="F"> Falsch</label>
+    </div>
+
+    <div class="opts" role="radiogroup" aria-label="Multiple Choice">
+      ${opts.map(o=>`
+        <div class="opt"><label><input type="radio" name="${id}-mcq" value="${o.k}"> ${o.k}) ${o.text}</label></div>
+      `).join('')}
+    </div>
+
+    <div class="footer">
+      <button class="btn small" data-action="check">Prüfen</button>
+      <button class="btn small ghost" data-action="reveal">Lösung zeigen</button>
+      <span class="pill" id="${id}-pill">Lösung: <strong>${rf}</strong> → <strong>${ans}</strong></span>
+    </div>
+    <div class="hint" id="${id}-hint">Tipp: Wähle zuerst R/F und eine Option (a/b/c).</div>
+  `;
+
+  const hintEl = card.querySelector(`#${id}-hint`);
+  const pillEl = card.querySelector(`#${id}-pill`);
+  hintEl.style.display = 'none';
+  let locked = false;
+
+  card.querySelector('[data-action="check"]').addEventListener('click', ()=>{
+    if (locked) return;
+    const r = (document.querySelector(`input[name='${id}-rf']:checked`)||{}).value;
+    const m = (document.querySelector(`input[name='${id}-mcq']:checked`)||{}).value;
+    if(!r || !m){ hintEl.style.display = 'block'; return; }
+    hintEl.style.display = 'none';
+
+    const rfOK = (r===rf);
+    const mcqOK = (m===correctKey);
+
+    // points and progress
+    let gained = 0;
+    if(rfOK) gained++;
+    if(mcqOK) gained++;
+    totalPoints += gained;
+    answeredCards += 1;
+    updateProgress();
+
+    // visual only: green shadow when both correct
+    if (rfOK && mcqOK) {
+      card.classList.add('ok');
+    }
+    // reveal solution (no text results)
+    pillEl.classList.add('show');
+    locked = true;
+    card.querySelectorAll("input[type='radio']").forEach(el=> el.disabled = true);
+  });
+
+  card.querySelector('[data-action="reveal"]').addEventListener('click', ()=>{
+    pillEl.classList.add('show');
+  });
+
+  return card;
+}
+
+function render(){
+  grid.innerHTML='';
+  data.forEach((item, idx)=>{
+    grid.appendChild(makeCard(item, idx));
+  });
+}
+
+function resetAll(){
+  totalPoints = 0;
+  answeredCards = 0;
+  updateProgress();
+  render();
+}
+
+function shuffleAll(){
+  // shuffle cards order and re-render with fresh option orders
+  data = shuffleArray(source);
+  resetAll();
+}
+
+function revealAll(){
+  document.querySelectorAll('.pill').forEach(p=> p.classList.add('show'));
+}
+
+// init
+data = shuffleArray(source);
+updateProgress();
+render();
+
+// top controls
+document.getElementById('resetAll').addEventListener('click', resetAll);
+document.getElementById('checkAll').addEventListener('click', ()=>{
+  // Only checks cards that have selections; otherwise shows hint
+  document.querySelectorAll('.card [data-action="check"]').forEach(btn=> btn.click());
+});
+document.getElementById('revealAll').addEventListener('click', revealAll);
+document.getElementById('shuffle').addEventListener('click', shuffleAll);
+</script>
+</body>
+</html>
